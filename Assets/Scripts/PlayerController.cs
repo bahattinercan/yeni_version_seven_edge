@@ -1,4 +1,8 @@
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerController : MonoBehaviour
 {
@@ -9,15 +13,14 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Transform groundRaycastT;
     [SerializeField] private LayerMask groundLayer;
 
-    [Header("Speeds")]
-    private float moveSpeed;    
+    [Header("Speeds")] private float moveSpeed;
 
     [SerializeField] private float walkSpeed;
     [SerializeField] private float crouchSpeed;
     [SerializeField] private float slideSpeed;
     [SerializeField] private float slideTime;
     [SerializeField] private float rotateSpeed;
-    [SerializeField] private float jumpAmount = 20;
+    [SerializeField] private float jumpAmount = 5;
     private Vector3 moveDirection;
 
     private Rigidbody rb;
@@ -35,10 +38,22 @@ public class PlayerController : MonoBehaviour
     private float slideColliderHeight;
 
     private bool onTheAir = false;
-    private bool isCrouching = false;
+    public bool isCrouching = false;
     private bool isSliding = false;
+    public bool isRun = false;
+    private PlayerTrigger _playerTrigger;
 
-    public static PlayerController Instance { get => instance; }
+    private Animator anim;
+
+    [SerializeField] private TextMeshProUGUI timeText;
+    [SerializeField] private float time;
+
+    [SerializeField] private List<GameObject> cars;
+
+    public static PlayerController Instance
+    {
+        get => instance;
+    }
 
     private void Awake()
     {
@@ -47,9 +62,10 @@ public class PlayerController : MonoBehaviour
 
     private void Start()
     {
+        anim = GetComponent<Animator>();
         rb = GetComponent<Rigidbody>();
         mainCamera = Camera.main;
-        
+        _playerTrigger = GetComponent<PlayerTrigger>();
         // coliider calculations
         baseColliderCenter = _collider.center;
         baseColliderHeight = _collider.height;
@@ -61,25 +77,26 @@ public class PlayerController : MonoBehaviour
 
     private void FixedUpdate()
     {
+        time -= Time.deltaTime;
+        timeText.text = Mathf.Round(time).ToString();
         moveDirection = GetMoveDirection();
-        Slide();
-        Crouch();
-        Jump();
         Walking();
         GroundRaycast();
     }
 
-    private void Crouch()
+    public void Crouch()
     {
-        if (Input.GetKeyDown(KeyCode.C) && !onTheAir && !isSliding && !isCrouching)
+        if (!onTheAir && !isSliding && !isCrouching)
         {
+            anim.SetTrigger("isCrouch");
             isCrouching = true;
             _collider.center = crouchColliderCenter;
             _collider.height = crouchColliderHeight;
             moveSpeed = crouchSpeed;
         }
-        else if (Input.GetKeyUp(KeyCode.C) && isCrouching)
+        else if (isCrouching)
         {
+            anim.SetTrigger("isStand");
             isCrouching = false;
             _collider.center = baseColliderCenter;
             _collider.height = baseColliderHeight;
@@ -87,18 +104,20 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private void Slide()
+    public void Slide()
     {
-        if (Input.GetKeyDown(KeyCode.LeftShift) && !onTheAir && !isCrouching && !isSliding && IsRunning())
+        if (!onTheAir && !isCrouching && !isSliding && IsRunning())
         {
+            //Add SlideAnim
             isSliding = true;
             _collider.center = slideColliderCenter;
             _collider.height = slideColliderHeight;
             moveSpeed = slideSpeed;
-            Invoke("StopSlide", slideTime);
         }
     }
-    private void StopSlide()
+
+    //Anim Trigger End Call this method
+    public void StopSlide()
     {
         isSliding = false;
         _collider.center = baseColliderCenter;
@@ -106,19 +125,51 @@ public class PlayerController : MonoBehaviour
         moveSpeed = slideSpeed;
     }
 
-    private void Jump()
+    public void Jump()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && !isCrouching && !onTheAir && !isSliding)
+        if (!isCrouching && !onTheAir && !isSliding)
         {
-            rb.velocity += jumpAmount * Vector3.up;
+            anim.SetTrigger("isJump");
         }
+    }
+
+    public void JumpUp()
+    {
+        rb.velocity += jumpAmount * Vector3.up;
+    }
+
+    public void GetVechicle()
+    {
+        isRun = true;
+        cars[1].SetActive(true);
+        cars[0].SetActive(false);
+        StartCoroutine(WaitAndPrint());
+    }
+
+    private IEnumerator WaitAndPrint()
+    {
+        
+            yield return new WaitForSeconds(8f);
+            isRun = false;
+            cars[0].SetActive(true);
+            cars[1].SetActive(false);
     }
 
     private void Walking()
     {
+        if (!IsRunning())
+        {
+            _playerTrigger.Energy(Time.deltaTime / 35f);
+        }
+
         if (IsRunning() && !isCrouching && !isSliding)
         {
             moveSpeed = walkSpeed;
+        }
+
+        if (isRun)
+        {
+            moveSpeed = walkSpeed * 1.5f;
         }
 
         if (IsRunning())
@@ -127,10 +178,12 @@ public class PlayerController : MonoBehaviour
             var targetAngle = targetRotation.eulerAngles.y;
             targetAngle += mainCamera.transform.eulerAngles.y;
 
-            currentAngle = Mathf.SmoothDampAngle(currentAngle, targetAngle, ref currentAngleVelocity, rotationSmoothTime);
+            currentAngle =
+                Mathf.SmoothDampAngle(currentAngle, targetAngle, ref currentAngleVelocity, rotationSmoothTime);
             transform.eulerAngles = new Vector3(0, currentAngle, 0);
 
             rb.velocity = new Vector3(transform.forward.x * moveSpeed, rb.velocity.y, transform.forward.z * moveSpeed);
+            _playerTrigger.Energy(Time.deltaTime / (15f - (isRun ? 5f : 0)));
         }
         else
         {
@@ -141,9 +194,11 @@ public class PlayerController : MonoBehaviour
     private void GroundRaycast()
     {
         // Does the ray intersect any objects excluding the player layer
-        if (Physics.Raycast(groundRaycastT.position, groundRaycastT.TransformDirection(Vector3.down), out hit, Mathf.Infinity, groundLayer))
+        if (Physics.Raycast(groundRaycastT.position, groundRaycastT.TransformDirection(Vector3.down), out hit,
+                Mathf.Infinity, groundLayer))
         {
-            Debug.DrawRay(groundRaycastT.position, groundRaycastT.TransformDirection(Vector3.down) * hit.distance, Color.yellow);
+            Debug.DrawRay(groundRaycastT.position, groundRaycastT.TransformDirection(Vector3.down) * hit.distance,
+                Color.yellow);
             onTheAir = true;
         }
         else
@@ -163,6 +218,13 @@ public class PlayerController : MonoBehaviour
     }
 
     public bool IsRunning()
+    {
+        if (GetMoveDirection() == Vector3.zero)
+            return false;
+        return true;
+    }
+
+    public bool IsCrouchRunning()
     {
         if (GetMoveDirection() == Vector3.zero)
             return false;
