@@ -24,7 +24,8 @@ public class PlayerTrigger : MonoBehaviour
         else if (other.tag == "Cars")
         {
             carButton.SetActive(true);
-            carButton.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = other.name;
+            carButton.transform.GetChild(0).GetChild(1).GetComponent<TextMeshProUGUI>().text = other.name;
+            PlayerController.Instance.selectedCar = other.gameObject;
         }
     }
 

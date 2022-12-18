@@ -45,10 +45,13 @@ public class PlayerController : MonoBehaviour
 
     private Animator anim;
 
+    [SerializeField] private GameObject losePanel;
+
     [SerializeField] private TextMeshProUGUI timeText;
     [SerializeField] private float time;
 
     [SerializeField] private List<GameObject> cars;
+    public GameObject selectedCar;
 
     public static PlayerController Instance
     {
@@ -75,13 +78,33 @@ public class PlayerController : MonoBehaviour
         slideColliderHeight = baseColliderHeight / 3;
     }
 
+    public bool isPause = false;
+
     private void FixedUpdate()
     {
-        time -= Time.deltaTime;
-        timeText.text = Mathf.Round(time).ToString();
+        if (!isPause) TimeMethod();
+            
         moveDirection = GetMoveDirection();
         Walking();
         GroundRaycast();
+    }
+
+    void TimeMethod()
+    {
+        if (time > 0)
+        {
+            time -= Time.deltaTime;
+            timeText.text = Mathf.Round(time).ToString();
+        }
+        else
+        {
+            LoseMenu();
+        }
+    }
+
+    private void LoseMenu()
+    {
+        losePanel.SetActive(true);
     }
 
     public void Crouch()
@@ -140,20 +163,20 @@ public class PlayerController : MonoBehaviour
 
     public void GetVechicle()
     {
+        selectedCar.SetActive(false);
         isRun = true;
         cars[1].SetActive(true);
         cars[0].SetActive(false);
-        StartCoroutine(WaitAndPrint());
     }
 
-    private IEnumerator WaitAndPrint()
+    public void OutVechicle()
     {
-        
-            yield return new WaitForSeconds(8f);
-            isRun = false;
-            cars[0].SetActive(true);
-            cars[1].SetActive(false);
+        selectedCar.SetActive(true);
+        isRun = false;
+        cars[1].SetActive(false);
+        cars[0].SetActive(true);
     }
+
 
     private void Walking()
     {
