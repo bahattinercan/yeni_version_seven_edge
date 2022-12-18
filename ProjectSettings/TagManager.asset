@@ -9,6 +9,7 @@ TagManager:
   - door
   - targetPlace
   - obstacle
+  - Cars
   layers:
   - Default
   - TransparentFX

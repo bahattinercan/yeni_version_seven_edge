@@ -1,3 +1,5 @@
+using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -5,6 +7,7 @@ public class PlayerTrigger : MonoBehaviour
 {
     [SerializeField] private Image fillEnergy;
     [SerializeField] private float fillAmount;
+    [SerializeField] private GameObject carButton;
 
     private void OnTriggerEnter(Collider other)
     {
@@ -17,6 +20,20 @@ public class PlayerTrigger : MonoBehaviour
         {
             CollectFruits(fillAmount);
             HideCollactable(other.gameObject);
+        }
+        else if (other.tag == "Cars")
+        {
+            carButton.SetActive(true);
+            carButton.transform.GetChild(0).GetChild(1).GetComponent<TextMeshProUGUI>().text = other.name;
+            PlayerController.Instance.selectedCar = other.gameObject;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.tag == "Cars")
+        {
+            carButton.SetActive(false);
         }
     }
 
@@ -34,5 +51,10 @@ public class PlayerTrigger : MonoBehaviour
     {
         other.tag = "Untagged";
         other.gameObject.SetActive(false);
+    }
+
+    public void Energy(float loseEnergy)
+    {
+        fillEnergy.fillAmount -= loseEnergy;
     }
 }
